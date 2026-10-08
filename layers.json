@@ -1,0 +1,69 @@
+{
+  "server": "https://geocatmin.ingemmet.gob.pe/arcgis/rest/services",
+  "layers": [
+    {
+      "id": "litologia_100k",
+      "title": "Geología 1:100 000",
+      "service": "SERV_GEOLOGIA_100K_INTEGRADA",
+      "layer": 6,
+      "geometry": "polygon",
+      "batch": 250,
+      "minzoom": 4
+    },
+    {
+      "id": "fallas_100k",
+      "title": "Fallas 1:100 000",
+      "service": "SERV_GEOLOGIA_100K_INTEGRADA",
+      "layer": 3,
+      "geometry": "line",
+      "batch": 1000,
+      "minzoom": 6
+    },
+    {
+      "id": "pliegues_100k",
+      "title": "Pliegues 1:100 000",
+      "service": "SERV_GEOLOGIA_100K_INTEGRADA",
+      "layer": 4,
+      "geometry": "line",
+      "batch": 1000,
+      "minzoom": 6
+    },
+    {
+      "id": "litologia_50k",
+      "title": "Litología 1:50 000 (integrada)",
+      "service": "SERV_GEOLOGIA_50K_INTEGRADA",
+      "layer": 7,
+      "geometry": "polygon",
+      "batch": 250,
+      "minzoom": 7
+    },
+    {
+      "id": "fallas_50k",
+      "title": "Fallas 1:50 000 (integrada)",
+      "service": "SERV_GEOLOGIA_50K_INTEGRADA",
+      "layer": 2,
+      "geometry": "line",
+      "batch": 1000,
+      "minzoom": 8
+    },
+    {
+      "id": "pliegues_50k",
+      "title": "Pliegues 1:50 000 (integrada)",
+      "service": "SERV_GEOLOGIA_50K_INTEGRADA",
+      "layer": 3,
+      "geometry": "line",
+      "batch": 1000,
+      "minzoom": 8
+    },
+    {
+      "id": "geomorfologia",
+      "title": "Geomorfología",
+      "service": "SERV_GEOMORFOLOGIA",
+      "layer": 0,
+      "geometry": "polygon",
+      "batch": 250,
+      "minzoom": 4
+    }
+  ],
+  "maxzoom": 13
+}

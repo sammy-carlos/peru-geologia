@@ -1,0 +1,8 @@
+# The downloads and the built files are published on Hugging Face, not on GitHub.
+raw/
+data/
+dist/
+build/
+.venv/
+__pycache__/
+.DS_Store
