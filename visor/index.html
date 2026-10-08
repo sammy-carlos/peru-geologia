@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Geología del Perú</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.6.0/dist/maplibre-gl.css">
+  <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.6.0/dist/maplibre-gl.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pmtiles@4.5.0/dist/pmtiles.js"></script>
+  <style>
+    :root { --ink: #18201d; --muted: #69736d; --line: #d7dcd5; --panel: #fbfcf9; --accent: #1c5b4f; }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body { color: var(--ink); background: #f2f3ef; font: 13px/1.4 system-ui, sans-serif; }
+    #map { position: absolute; inset: 0; }
+    .panel { position: absolute; z-index: 2; top: 12px; left: 12px; width: 290px; max-height: calc(100% - 24px); overflow: auto; border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: var(--panel); box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+    .panel h1 { margin: 0 0 2px; font-size: 15px; }
+    .panel > small { color: var(--muted); }
+    .layer { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+    .layer input[type=range] { grid-column: 2; width: 100%; accent-color: var(--accent); }
+    .layer small { grid-column: 2; color: var(--muted); }
+    .maplibregl-popup-content { max-width: 340px; max-height: 320px; overflow: auto; font: 12px/1.35 system-ui, sans-serif; }
+    .maplibregl-popup-content h3 { margin: 0 0 4px; font-size: 13px; }
+    .maplibregl-popup-content table { border-collapse: collapse; }
+    .maplibregl-popup-content td { padding: 1px 6px 1px 0; vertical-align: top; }
+    .maplibregl-popup-content td:first-child { color: var(--muted); white-space: nowrap; }
+    @media (max-width: 520px) { .panel { right: 12px; width: auto; max-height: 45%; } }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <aside class="panel">
+    <h1>Geología del Perú</h1>
+    <small>INGEMMET · GEOCATMIN. Clic en el mapa para ver la unidad.</small>
+    <div id="layers"></div>
+  </aside>
+  <script>
+    // A test viewer for dist/peru-geologia.pmtiles, coloured with the official INGEMMET
+    // symbology in dist/estilos.json. Served by scripts/serve.py, which supports ranges.
+    const ARCHIVE = new URL("../dist/peru-geologia.pmtiles", location.href).href;
+    const protocol = new pmtiles.Protocol();
+    maplibregl.addProtocol("pmtiles", protocol.tile);
+
+    const rgba = (color) => (color ? `rgba(${color[0]},${color[1]},${color[2]},${(color[3] ?? 255) / 255})` : null);
+
+    // The renderer's key: one field, or several joined by the renderer's delimiter.
+    function key(style) {
+      const parts = style.fields.map((field) => ["to-string", ["coalesce", ["get", field], ""]]);
+      if (parts.length === 1) return parts[0];
+      return ["concat", ...parts.flatMap((part, index) => (index ? [style.delimiter, part] : [part]))];
+    }
+
+    function colorExpression(style, attribute) {
+      const pairs = style.values.filter((value) => value[attribute]).flatMap((value) => [String(value.value), rgba(value[attribute])]);
+      const fallback = rgba(style.default?.[attribute]) || "rgba(160,160,160,0.6)";
+      return pairs.length ? ["match", key(style), ...pairs, fallback] : fallback;
+    }
+
+    function widthExpression(style) {
+      const pairs = style.values.filter((value) => value.width).flatMap((value) => [String(value.value), Math.max(0.6, value.width * 0.6)]);
+      return pairs.length ? ["match", key(style), ...pairs, 1] : 1;
+    }
+
+    // Drawn bottom to top: the regional geomorphology, then 1:100 000, then 1:50 000, then lines.
+    const ORDER = ["geomorfologia", "litologia_100k", "litologia_50k", "fallas_100k", "pliegues_100k", "fallas_50k", "pliegues_50k"];
+    const VISIBLE = new Set(["litologia_100k", "litologia_50k", "fallas_50k"]);
+
+    async function start() {
+      const styles = (await (await fetch("../dist/estilos.json")).json()).layers;
+      const map = new maplibregl.Map({
+        container: "map",
+        center: [-71.02, -14.74],
+        zoom: 10,
+        hash: true,
+        style: {
+          version: 8,
+          sources: {
+            relief: { type: "raster", tileSize: 256, maxzoom: 16, attribution: "Esri", tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"] },
+            geology: { type: "vector", url: `pmtiles://${ARCHIVE}`, attribution: "© INGEMMET · GEOCATMIN" },
+          },
+          layers: [{ id: "relief", type: "raster", source: "relief" }],
+        },
+      });
+      map.addControl(new maplibregl.NavigationControl(), "bottom-right");
+      map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-left");
+
+      await new Promise((resolve) => map.once("load", resolve));
+      const panel = document.getElementById("layers");
+      for (const id of ORDER) {
+        const style = styles[id];
+        const visibility = VISIBLE.has(id) ? "visible" : "none";
+        const opacity = style.geometry === "polygon" ? 0.55 : 0.9;
+        if (style.geometry === "polygon") {
+          map.addLayer({ id, type: "fill", source: "geology", "source-layer": id, layout: { visibility }, paint: { "fill-color": colorExpression(style, "color"), "fill-opacity": opacity } });
+        } else {
+          map.addLayer({ id, type: "line", source: "geology", "source-layer": id, layout: { visibility }, paint: { "line-color": colorExpression(style, "color"), "line-width": widthExpression(style), "line-opacity": opacity } });
+        }
+        const row = document.createElement("label");
+        row.className = "layer";
+        row.innerHTML = `<input type="checkbox" ${visibility === "visible" ? "checked" : ""}><strong>${style.title}</strong>`
+          + `<input type="range" min="0" max="1" step="0.05" value="${opacity}"><small>desde zoom ${style.minzoom}</small>`;
+        const [toggle, slider] = row.querySelectorAll("input");
+        toggle.addEventListener("change", () => map.setLayoutProperty(id, "visibility", toggle.checked ? "visible" : "none"));
+        slider.addEventListener("input", () => map.setPaintProperty(id, style.geometry === "polygon" ? "fill-opacity" : "line-opacity", Number(slider.value)));
+        panel.append(row);
+      }
+
+      map.on("click", (event) => {
+        const box = [[event.point.x - 3, event.point.y - 3], [event.point.x + 3, event.point.y + 3]];
+        const features = map.queryRenderedFeatures(box, { layers: [...ORDER].reverse().filter((id) => map.getLayoutProperty(id, "visibility") !== "none") });
+        if (!features.length) return;
+        const seen = new Set();
+        const html = features.filter((feature) => !seen.has(feature.layer.id) && seen.add(feature.layer.id)).map((feature) => {
+          const rows = Object.entries(feature.properties).filter(([, value]) => value !== "" && value != null)
+            .map(([name, value]) => `<tr><td>${name}</td><td>${String(value).replace(/</g, "&lt;")}</td></tr>`).join("");
+          return `<h3>${styles[feature.layer.id].title}</h3><table>${rows}</table>`;
+        }).join("<hr>");
+        new maplibregl.Popup({ maxWidth: "360px" }).setLngLat(event.lngLat).setHTML(html).addTo(map);
+      });
+      map.on("mousemove", (event) => {
+        map.getCanvas().style.cursor = map.queryRenderedFeatures(event.point, { layers: ORDER.filter((id) => map.getLayoutProperty(id, "visibility") !== "none") }).length ? "pointer" : "";
+      });
+    }
+    start();
+  </script>
+</body>
+</html>

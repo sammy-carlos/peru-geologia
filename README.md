@@ -42,9 +42,22 @@ pasos.
 ```bash
 python3 scripts/download.py            # 1. descarga cruda en raw/ (horas; se puede cortar y retomar)
 uv run scripts/build_master.py         # 2. un GeoParquet por capa en data/, con su reporte
+uv run scripts/build_pmtiles.py        # 3. dist/peru-geologia.pmtiles y dist/estilos.json
 ```
 
-El paso 3, el PMTiles, usa [tippecanoe](https://github.com/felt/tippecanoe).
+El paso 3 usa [tippecanoe](https://github.com/felt/tippecanoe) (`brew install tippecanoe`).
+Cada capa se genera desde su zoom mínimo (`minzoom` en `layers.json`) hasta el 13, y los
+polígonos vecinos se simplifican juntos por su borde compartido. `estilos.json` guarda la
+simbología oficial de INGEMMET (colores por unidad, tipo y grosor de cada falla).
+
+Para revisar el resultado:
+
+```bash
+python3 scripts/serve.py               # http://127.0.0.1:8891/visor/
+```
+
+`serve.py` responde lecturas por rangos, que PMTiles necesita, y `visor/` es un mapa de prueba
+con las capas, su opacidad y la consulta de cada unidad con un clic.
 
 ## Fuente y uso
 
